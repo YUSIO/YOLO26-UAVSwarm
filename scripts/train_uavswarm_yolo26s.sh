@@ -74,12 +74,12 @@ from ultralytics import settings
 settings.update({"tensorboard": True})
 PY
 
-if ! command -v tensorboard >/dev/null 2>&1; then
-  echo "tensorboard CLI is unavailable; install it in the training environment before submitting this run" >&2
+if ! python -c 'import tensorboard' >/dev/null 2>&1; then
+  echo "tensorboard module is unavailable; install it in the training environment before submitting this run" >&2
   exit 1
 fi
 
-nohup tensorboard --logdir "$runs_root" --host 0.0.0.0 --port 6006 >"$runs_root/tensorboard.log" 2>&1 &
+nohup python -m tensorboard.main --logdir "$runs_root" --host 0.0.0.0 --port 6006 >"$runs_root/tensorboard.log" 2>&1 &
 tensorboard_pid=$!
 printf '%s\n' "$tensorboard_pid" >"$runs_root/tensorboard.pid"
 
