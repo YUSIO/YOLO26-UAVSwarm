@@ -18,6 +18,13 @@ runs_root=$(mkdir -p "$2" && cd "$2" && pwd)
 data_yaml="$dataset_root/yolo26/UAVSwarm-yolo26.yaml"
 run_name="exp008_yolo26s_uavswarm_run_001"
 run_dir="$runs_root/$run_name"
+network_turbo_enabled=false
+if [ -f /etc/network_turbo ]; then
+  # AutoDL's documented accelerator covers GitHub/GitHub assets and Hugging Face.
+  # It is enabled here so the pretrained YOLO26 weight download inherits the proxy.
+  source /etc/network_turbo
+  network_turbo_enabled=true
+fi
 
 if [ ! -f "$data_yaml" ]; then
   echo "missing generated dataset config: $data_yaml" >&2
@@ -64,8 +71,12 @@ tensorboard:
   host: 0.0.0.0
   port: 6006
   pid_file: $runs_root/tensorboard.pid
+network_turbo:
+  enabled: $network_turbo_enabled
+  source: /etc/network_turbo
 EOF
 cat >"$run_dir/command.txt" <<EOF
+if [ -f /etc/network_turbo ]; then source /etc/network_turbo; fi
 yolo detect train model=yolo26s.pt data=$data_yaml epochs=300 patience=100 imgsz=1280 batch=-1 device=0 workers=8 optimizer=auto seed=0 deterministic=True pretrained=True project=$runs_root name=$run_name exist_ok=True
 EOF
 python - <<'PY'
