@@ -55,6 +55,20 @@ if ! git merge-base --is-ancestor "$base_commit" HEAD; then
 fi
 data_manifest_sha256=$(sha256sum "$dataset_root/yolo26/split_manifest.json" | awk '{print $1}')
 config_sha256=$(sha256sum "$run_dir/config.yaml" | awk '{print $1}')
+if ! python -c 'import tensorboard' >/dev/null 2>&1; then
+  echo "tensorboard module is unavailable; install it in the training environment before submitting this run" >&2
+  exit 1
+fi
+tensorboard_pid_file="$runs_root/tensorboard.pid"
+tensorboard_mode=started
+if [ -s "$tensorboard_pid_file" ] && kill -0 "$(cat "$tensorboard_pid_file")" 2>/dev/null; then
+  tensorboard_pid=$(cat "$tensorboard_pid_file")
+  tensorboard_mode=reused
+else
+  nohup python -m tensorboard.main --logdir "$runs_root" --host 0.0.0.0 --port 6006 >"$runs_root/tensorboard.log" 2>&1 &
+  tensorboard_pid=$!
+  printf '%s\n' "$tensorboard_pid" >"$tensorboard_pid_file"
+fi
 cat >"$run_dir/manifest.yaml" <<EOF
 schema_version: 1
 status: running
@@ -73,6 +87,7 @@ model: yolo26s.pt
 config: config.yaml
 config_sha256: $config_sha256
 tensorboard:
+  mode: $tensorboard_mode
   logdir: $runs_root
   host: 0.0.0.0
   port: 6006
@@ -90,15 +105,6 @@ from ultralytics import settings
 
 settings.update({"tensorboard": True})
 PY
-
-if ! python -c 'import tensorboard' >/dev/null 2>&1; then
-  echo "tensorboard module is unavailable; install it in the training environment before submitting this run" >&2
-  exit 1
-fi
-
-nohup python -m tensorboard.main --logdir "$runs_root" --host 0.0.0.0 --port 6006 >"$runs_root/tensorboard.log" 2>&1 &
-tensorboard_pid=$!
-printf '%s\n' "$tensorboard_pid" >"$runs_root/tensorboard.pid"
 
 set +e
 yolo detect train \
