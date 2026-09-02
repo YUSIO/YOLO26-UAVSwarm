@@ -1,0 +1,21 @@
+# Immutable parameter record for exp008 / run_002.
+# It changes only the dataset YAML loading entry after run_001 exposed
+# Ultralytics' process-cwd resolution of relative paths inside split text files.
+task: detect
+model: yolo26s.pt
+data: ~/autodl-tmp/UAVSwarm-dataset-master/yolo26/UAVSwarm-yolo26.yaml
+data_backend: selected_image_directories
+epochs: 300
+patience: 100
+imgsz: 1280
+batch: -1
+device: 0
+workers: 8
+optimizer: auto
+seed: 0
+deterministic: true
+pretrained: true
+tensorboard: true
+train_split: per_sequence_first_half_plus_boundary
+val_split: per_sequence_second_half
+official_test_used: false

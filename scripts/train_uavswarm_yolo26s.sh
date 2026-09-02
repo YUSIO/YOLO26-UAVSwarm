@@ -16,7 +16,8 @@ fi
 dataset_root=$(cd "$1" && pwd)
 runs_root=$(mkdir -p "$2" && cd "$2" && pwd)
 data_yaml="$dataset_root/yolo26/UAVSwarm-yolo26.yaml"
-run_name="exp008_yolo26s_uavswarm_run_001"
+run_name="${RUN_NAME:-exp008_yolo26s_uavswarm_run_001}"
+config_source="${RUN_CONFIG:-configs/uavswarm_yolo26s_run_001.yaml}"
 run_dir="$runs_root/$run_name"
 network_turbo_enabled=false
 if [ -f /etc/network_turbo ]; then
@@ -35,10 +36,14 @@ if [ -e "$run_dir" ]; then
   echo "refusing to overwrite an existing run directory: $run_dir" >&2
   exit 1
 fi
+if [ ! -f "$config_source" ]; then
+  echo "missing immutable run config: $config_source" >&2
+  exit 1
+fi
 
 mkdir -p "$run_dir"
 exec >>"$run_dir/combined.log" 2>&1
-cp configs/uavswarm_yolo26s_run_001.yaml "$run_dir/config.yaml"
+cp "$config_source" "$run_dir/config.yaml"
 cp "$data_yaml" "$run_dir/UAVSwarm-yolo26.yaml"
 cp "$dataset_root/yolo26/split_manifest.json" "$run_dir/split_manifest.json"
 cp "$dataset_root/yolo26/SPLIT_RULE.md" "$run_dir/SPLIT_RULE.md"
