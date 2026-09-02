@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   bash scripts/train_uavswarm_yolo26s.sh /root/autodl-tmp/UAVSwarm-dataset-master /root/autodl-tmp/runs
+#
+# The dataset split is generated under <dataset-root>/yolo26.  The run directory
+# is intentionally external to the clone so a fresh clone can reproduce code
+# while checkpoints and TensorBoard event files remain persistent.
+
+if [ "$#" -ne 2 ]; then
+  echo "usage: $0 <UAVSwarm-dataset-master> <runs-root>" >&2
+  exit 2
+fi
+
+dataset_root=$(cd "$1" && pwd)
+runs_root=$(mkdir -p "$2" && cd "$2" && pwd)
+data_yaml="$dataset_root/yolo26/UAVSwarm-yolo26.yaml"
+run_name="exp008_yolo26s_uavswarm_run_001"
+run_dir="$runs_root/$run_name"
+
+if [ ! -f "$data_yaml" ]; then
+  echo "missing generated dataset config: $data_yaml" >&2
+  echo "run: python scripts/prepare_uavswarm_yolo26.py --dataset-root $dataset_root" >&2
+  exit 1
+fi
+if [ -e "$run_dir" ]; then
+  echo "refusing to overwrite an existing run directory: $run_dir" >&2
+  exit 1
+fi
+
+mkdir -p "$run_dir"
+cp configs/uavswarm_yolo26s_run_001.yaml "$run_dir/config.yaml"
+cp "$data_yaml" "$run_dir/UAVSwarm-yolo26.yaml"
+cp "$dataset_root/yolo26/split_manifest.json" "$run_dir/split_manifest.json"
+cp "$dataset_root/yolo26/SPLIT_RULE.md" "$run_dir/SPLIT_RULE.md"
+code_commit=$(git rev-parse HEAD)
+base_commit=$(git rev-parse main)
+data_manifest_sha256=$(sha256sum "$dataset_root/yolo26/split_manifest.json" | awk '{print $1}')
+config_sha256=$(sha256sum "$run_dir/config.yaml" | awk '{print $1}')
+cat >"$run_dir/manifest.yaml" <<EOF
+schema_version: 1
+status: running
+code:
+  repository: https://github.com/YUSIO/YOLO26-UAVSwarm.git
+  branch: $(git branch --show-current)
+  commit: $code_commit
+  base_commit: $base_commit
+  working_tree: clean_required
+dataset:
+  root: $dataset_root
+  data_yaml: $data_yaml
+  split_manifest_sha256: $data_manifest_sha256
+  official_test_used: false
+model: yolo26s.pt
+config: config.yaml
+config_sha256: $config_sha256
+tensorboard:
+  logdir: $runs_root
+  host: 0.0.0.0
+  port: 6006
+  pid_file: $runs_root/tensorboard.pid
+EOF
+cat >"$run_dir/command.txt" <<EOF
+yolo detect train model=yolo26s.pt data=$data_yaml epochs=300 patience=100 imgsz=1280 batch=-1 device=0 workers=8 optimizer=auto seed=0 deterministic=True pretrained=True project=$runs_root name=$run_name exist_ok=True
+EOF
+python - <<'PY'
+from ultralytics import settings
+
+settings.update({"tensorboard": True})
+PY
+
+if ! command -v tensorboard >/dev/null 2>&1; then
+  echo "tensorboard CLI is unavailable; install it in the training environment before submitting this run" >&2
+  exit 1
+fi
+
+nohup tensorboard --logdir "$runs_root" --host 0.0.0.0 --port 6006 >"$runs_root/tensorboard.log" 2>&1 &
+tensorboard_pid=$!
+printf '%s\n' "$tensorboard_pid" >"$runs_root/tensorboard.pid"
+
+yolo detect train \
+  model=yolo26s.pt \
+  data="$data_yaml" \
+  epochs=300 \
+  patience=100 \
+  imgsz=1280 \
+  batch=-1 \
+  device=0 \
+  workers=8 \
+  optimizer=auto \
+  seed=0 \
+  deterministic=True \
+  pretrained=True \
+  project="$runs_root" \
+  name="$run_name" \
+  exist_ok=True

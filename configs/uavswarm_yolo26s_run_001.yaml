@@ -1,0 +1,19 @@
+# Immutable parameter record for exp008 / run_001.
+# `data` is resolved at submission time as
+# <dataset-root>/yolo26/UAVSwarm-yolo26.yaml by scripts/train_uavswarm_yolo26s.sh.
+task: detect
+model: yolo26s.pt
+epochs: 300
+patience: 100
+imgsz: 1280
+batch: -1
+device: 0
+workers: 8
+optimizer: auto
+seed: 0
+deterministic: true
+pretrained: true
+tensorboard: true
+train_split: per_sequence_first_half_plus_boundary
+val_split: per_sequence_second_half
+official_test_used: false
