@@ -37,6 +37,7 @@ if [ -e "$run_dir" ]; then
 fi
 
 mkdir -p "$run_dir"
+exec >>"$run_dir/combined.log" 2>&1
 cp configs/uavswarm_yolo26s_run_001.yaml "$run_dir/config.yaml"
 cp "$data_yaml" "$run_dir/UAVSwarm-yolo26.yaml"
 cp "$dataset_root/yolo26/split_manifest.json" "$run_dir/split_manifest.json"
@@ -94,6 +95,7 @@ nohup python -m tensorboard.main --logdir "$runs_root" --host 0.0.0.0 --port 600
 tensorboard_pid=$!
 printf '%s\n' "$tensorboard_pid" >"$runs_root/tensorboard.pid"
 
+set +e
 yolo detect train \
   model=yolo26s.pt \
   data="$data_yaml" \
@@ -110,3 +112,7 @@ yolo detect train \
   project="$runs_root" \
   name="$run_name" \
   exist_ok=True
+training_exit_code=$?
+set -e
+printf '%s\n' "$training_exit_code" >"$run_dir/exit_code.txt"
+exit "$training_exit_code"
