@@ -35,7 +35,7 @@ cp "$data_yaml" "$run_dir/UAVSwarm-yolo26.yaml"
 cp "$dataset_root/yolo26/split_manifest.json" "$run_dir/split_manifest.json"
 cp "$dataset_root/yolo26/SPLIT_RULE.md" "$run_dir/SPLIT_RULE.md"
 code_commit=$(git rev-parse HEAD)
-base_commit=$(git rev-parse main)
+base_commit=$(git rev-parse HEAD^)
 data_manifest_sha256=$(sha256sum "$dataset_root/yolo26/split_manifest.json" | awk '{print $1}')
 config_sha256=$(sha256sum "$run_dir/config.yaml" | awk '{print $1}')
 cat >"$run_dir/manifest.yaml" <<EOF
