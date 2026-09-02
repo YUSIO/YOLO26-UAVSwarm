@@ -7,6 +7,7 @@ import argparse
 import configparser
 import hashlib
 import json
+import math
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,6 +61,7 @@ def export_sequence(
     temporary_path = sequence_output / "det.txt.partial"
     frame_counts: Counter[int] = Counter()
     seen_frames: set[int] = set()
+    invalid_boxes_skipped = 0
 
     predictions = model.predict(
         source=str(images[0].parent),
@@ -85,8 +87,9 @@ def export_sequence(
             for xyxy, score in zip(boxes.xyxy.cpu().tolist(), boxes.conf.cpu().tolist()):
                 left, top, right, bottom = xyxy
                 width, height = right - left, bottom - top
-                if width <= 0 or height <= 0:
-                    raise RuntimeError(f"{sequence.name} frame {frame_id}: non-positive detector box")
+                if not all(math.isfinite(value) for value in (*xyxy, score)) or width <= 1e-6 or height <= 1e-6:
+                    invalid_boxes_skipped += 1
+                    continue
                 file.write(
                     f"{frame_id},-1,{left:.8f},{top:.8f},{width:.8f},{height:.8f},{score:.8f},-1,-1,-1\n"
                 )
@@ -102,6 +105,7 @@ def export_sequence(
         "detections": sum(frame_counts.values()),
         "empty_frames": expected_length - len(frame_counts),
         "max_detections_in_frame": max(frame_counts.values(), default=0),
+        "invalid_boxes_skipped": invalid_boxes_skipped,
         "path": str(final_path.relative_to(output_root)),
         "sha256": sha256(final_path),
     }
@@ -170,6 +174,7 @@ def main() -> None:
             "frames": sum(item["frames"] for item in summaries),
             "detections": sum(item["detections"] for item in summaries),
             "empty_frames": sum(item["empty_frames"] for item in summaries),
+            "invalid_boxes_skipped": sum(item["invalid_boxes_skipped"] for item in summaries),
         },
         "sequences": summaries,
     }
