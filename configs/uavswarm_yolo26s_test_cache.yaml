@@ -1,0 +1,16 @@
+# Immutable parameter record for the exp008 test detector cache.
+task: detect
+model: best.pt
+dataset: UAVSwarm official test split (36 sequences, source img1 directories)
+output_format: MOTChallenge_det_txt
+coordinate_format: original_image_top_left_xywh
+confidence: post_nms_detector_confidence
+imgsz: 1280
+confidence_threshold: 0.001
+iou_threshold: 0.7
+max_det: 300
+batch: 8
+requested_device: mps
+actual_device: cpu
+mps_fallback_reason: torch.backends.mps.is_available() == false
+official_test_modified: false
