@@ -1,0 +1,17 @@
+# Immutable parameter record for Experiment 011 run 001.
+task: detect
+model: yolo11s.pt
+data: ~/autodl-tmp/UAVSwarmV2_YOLO/UAVSwarmV2-YOLO.yaml
+data_backend: released_images_train_and_images_test
+epochs: 150
+patience: 0
+imgsz: 640
+batch: -1
+device: 0
+workers: 8
+optimizer: auto
+seed: 0
+deterministic: true
+pretrained: true
+tensorboard: true
+mot_overlap_warning: true
