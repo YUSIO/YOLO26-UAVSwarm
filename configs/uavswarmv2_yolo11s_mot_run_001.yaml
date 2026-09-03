@@ -1,8 +1,9 @@
 # Immutable parameter record for Experiment 011 run 001.
 task: detect
 model: yolo11s.pt
-data: ~/autodl-tmp/UAVSwarmV2_YOLO/UAVSwarmV2-YOLO.yaml
-data_backend: released_images_train_and_images_test
+data: ~/autodl-tmp/UAVSwarmV2_MOT/yolo11s_mot_temporal/UAVSwarmV2-MOT-temporal.yaml
+data_backend: generated_selected_image_directories
+protocol: MOT_train_only_per_sequence_temporal_split
 epochs: 150
 patience: 0
 imgsz: 640
@@ -14,4 +15,4 @@ seed: 0
 deterministic: true
 pretrained: true
 tensorboard: true
-mot_overlap_warning: true
+official_mot_test_used: false
