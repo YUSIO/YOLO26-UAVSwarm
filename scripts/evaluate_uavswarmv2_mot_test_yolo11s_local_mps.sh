@@ -13,6 +13,7 @@ data_yaml="$dataset_root/yolo11s_mot_test_eval/UAVSwarmV2-MOT-test.yaml"
 test_manifest="$dataset_root/yolo11s_mot_test_eval/test_manifest.json"
 run_name="${RUN_NAME:-run_003}"
 run_dir="$result_root/$run_name"
+python_bin="${PYTHON_BIN:-python}"
 imgsz=640
 batch=16
 workers=0
@@ -31,12 +32,12 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "source tree is dirty" >&2
   exit 1
 fi
-if ! command -v yolo >/dev/null 2>&1; then
-  echo "Ultralytics CLI is unavailable; install the pinned ultralytics package first" >&2
+if ! "$python_bin" -c 'import ultralytics' >/dev/null 2>&1; then
+  echo "Ultralytics is unavailable in PYTHON_BIN=$python_bin" >&2
   exit 1
 fi
 
-python - <<'PY'
+"$python_bin" - <<'PY'
 import torch
 if not torch.backends.mps.is_available():
     raise SystemExit("MPS is unavailable in this process; refusing CPU fallback for this run")
@@ -51,7 +52,7 @@ cp "$dataset_root/yolo11s_mot_test_eval/PROTOCOL.md" "$run_dir/PROTOCOL.md"
 commit=$(git rev-parse HEAD)
 checkpoint_hash=$(shasum -a 256 "$checkpoint" | awk '{print $1}')
 test_hash=$(shasum -a 256 "$test_manifest" | awk '{print $1}')
-python - "$run_dir/manifest.yaml" "$dataset_root" "$data_yaml" "$checkpoint" "$checkpoint_hash" "$test_hash" "$commit" <<'PY'
+"$python_bin" - "$run_dir/manifest.yaml" "$dataset_root" "$data_yaml" "$checkpoint" "$checkpoint_hash" "$test_hash" "$commit" <<'PY'
 import platform
 import sys
 from pathlib import Path
@@ -91,15 +92,15 @@ Path(path).write_text(
     f"  platform: {platform.platform()}\n"
 )
 PY
-printf 'yolo detect val model=%s data=%s split=test imgsz=%s batch=%s device=mps workers=%s conf=0.001 iou=0.7 max_det=300 project=%s name=%s exist_ok=True\n' "$checkpoint" "$data_yaml" "$imgsz" "$batch" "$workers" "$result_root" "$run_name" > "$run_dir/command.txt"
+printf '%s -m ultralytics detect val model=%s data=%s split=test imgsz=%s batch=%s device=mps workers=%s conf=0.001 iou=0.7 max_det=300 project=%s name=%s exist_ok=True\n' "$python_bin" "$checkpoint" "$data_yaml" "$imgsz" "$batch" "$workers" "$result_root" "$run_name" > "$run_dir/command.txt"
 
 set +e
-PYTORCH_ENABLE_MPS_FALLBACK=1 yolo detect val model="$checkpoint" data="$data_yaml" split=test imgsz="$imgsz" batch="$batch" device=mps workers="$workers" conf=0.001 iou=0.7 max_det=300 project="$result_root" name="$run_name" exist_ok=True 2>&1 | tee "$run_dir/combined.log"
+PYTORCH_ENABLE_MPS_FALLBACK=1 "$python_bin" -m ultralytics detect val model="$checkpoint" data="$data_yaml" split=test imgsz="$imgsz" batch="$batch" device=mps workers="$workers" conf=0.001 iou=0.7 max_det=300 project="$result_root" name="$run_name" exist_ok=True 2>&1 | tee "$run_dir/combined.log"
 exit_code=${PIPESTATUS[0]}
 set -e
 printf '%s\n' "$exit_code" > "$run_dir/exit_code.txt"
 
-python - "$run_dir" "$exit_code" <<'PY'
+"$python_bin" - "$run_dir" "$exit_code" <<'PY'
 import csv
 import json
 import sys
