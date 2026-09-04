@@ -115,8 +115,8 @@ set -e
 printf '%s\n' "$exit_code" > "$run_dir/exit_code.txt"
 
 "$python_bin" - "$run_dir" "$exit_code" <<'PY'
-import csv
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -126,12 +126,28 @@ manifest = run_dir / "manifest.yaml"
 status = "completed" if exit_code == 0 else "failed"
 manifest.write_text(manifest.read_text().replace("status: running", f"status: {status}"))
 if exit_code == 0:
-    with (run_dir / "results.csv").open(newline="") as f:
-        rows = list(csv.DictReader(f))
+    log = (run_dir / "combined.log").read_text(errors="replace")
+    log = re.sub(r"\\x1b\\[[0-?]*[ -/]*[@-~]", "", log)
+    rows = re.findall(
+        r"(?m)^\\s*all\\s+(\\d+)\\s+(\\d+)\\s+([0-9.]+)\\s+([0-9.]+)\\s+([0-9.]+)\\s+([0-9.]+)\\s*$",
+        log,
+    )
     if not rows:
-        raise SystemExit("results.csv has no metric rows")
-    fields = ["metrics/precision(B)", "metrics/recall(B)", "metrics/mAP50(B)", "metrics/mAP50-95(B)"]
-    metrics = {key: float(rows[-1][key]) for key in fields}
+        raise SystemExit("could not locate the final Ultralytics metric summary in combined.log")
+    images, instances, precision, recall, map50, map50_95 = rows[-1]
+    metrics = {
+        "status": "completed",
+        "exit_code": exit_code,
+        "test": {
+            "images": int(images),
+            "instances": int(instances),
+            "precision": float(precision),
+            "recall": float(recall),
+            "map50": float(map50),
+            "map50_95": float(map50_95),
+        },
+        "metric_source": "final Ultralytics terminal summary in combined.log",
+    }
     (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
 PY
 
